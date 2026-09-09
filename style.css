@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Share Tech Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/share-tech-mono.woff2') format('woff2');
+}
+
 :root {
   --green: #33ff33;
   --amber: #ffcc00;
@@ -97,7 +105,7 @@ body { background: #000; overflow: hidden; width: 100vw; height: 100vh; cursor: 
   flex-direction: row;
   gap: 0;
   overflow: hidden;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: clamp(12px, 1.2vw, 22px);
   line-height: 1.5;
   color: var(--green);
@@ -225,7 +233,7 @@ body { background: #000; overflow: hidden; width: 100vw; height: 100vh; cursor: 
   bottom: 1.2em;
   right: 2em;
   z-index: 20;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: clamp(12px, 1.2vw, 22px);
   color: var(--dim);
   pointer-events: all;
@@ -237,7 +245,17 @@ body.splash #sidebar       { display: none; }
 body.splash #main-area     { border-right: none; }
 body.splash #prompt-line   { display: none; }
 
-.splash-wrap  { font-family: 'Share Tech Mono', monospace; font-weight: 400; }
+/* box-drawing / block glyphs aren't in Share Tech Mono; keep frame art on a
+   font that has them so every column stays the same width */
+#sidebar, .skull { font-family: 'Courier New', Courier, monospace; }
+
+#kbd {
+  position: fixed; bottom: 0; left: 0;
+  width: 1px; height: 1px;
+  opacity: 0; border: 0; padding: 0;
+  font-size: 16px;
+  pointer-events: none;
+}
 .splash-title { font-size: 2em; }
 .splash-item  { font-size: 1.25em; }
 

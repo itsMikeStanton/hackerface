@@ -59,6 +59,10 @@ document.addEventListener('keydown', e => {
   if (view.state === 'BOOT') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
+  // text typed into the hidden mobile input arrives via its 'input' event;
+  // only nav keys from it go through this handler
+  if (e.target === kbdInput && !KBD_PASSTHROUGH.includes(e.key)) return;
+
   // splash has no visible prompt line, so anything but nav would pile up unseen
   const onSplash = document.body.classList.contains('splash');
   const SPLASH_KEYS = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'];
@@ -100,8 +104,7 @@ document.addEventListener('keydown', e => {
   }
 
   if (e.key === 'Backspace') {
-    view.inputBuffer = view.inputBuffer.slice(0,-1);
-    inputDispEl.textContent = view.inputBuffer;
+    backspace();
     return;
   }
 
@@ -118,12 +121,42 @@ document.addEventListener('keydown', e => {
     return;
   }
 
-  if (e.key.length === 1) {
-    snd.key();
-    view.inputBuffer += e.key;
-    inputDispEl.textContent = view.inputBuffer;
-  }
+  if (e.key.length === 1) typeChar(e.key);
 });
+
+function typeChar(ch) {
+  snd.key();
+  view.inputBuffer += ch;
+  inputDispEl.textContent = view.inputBuffer;
+}
+
+function backspace() {
+  view.inputBuffer = view.inputBuffer.slice(0,-1);
+  inputDispEl.textContent = view.inputBuffer;
+}
+
+// ── MOBILE KEYBOARD ──────────────────────────────────────────────────────────
+// Touch devices have no key events until something focusable is focused, so a
+// hidden input raises the soft keyboard. It keeps one sentinel space in its
+// value so deleting still fires an input event when the buffer is empty.
+const kbdInput = document.getElementById('kbd');
+const KBD_PASSTHROUGH = ['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+
+kbdInput.addEventListener('input', e => {
+  if (e.inputType === 'deleteContentBackward') backspace();
+  else if (e.data) for (const ch of e.data) typeChar(ch);
+  kbdInput.value = ' ';
+});
+
+if (window.matchMedia('(pointer: coarse)').matches) {
+  const raiseKeyboard = () => {
+    if (document.body.classList.contains('splash')) return;
+    kbdInput.value = ' ';
+    kbdInput.focus();
+  };
+  document.getElementById('output').addEventListener('click', raiseKeyboard);
+  document.getElementById('prompt-line').addEventListener('click', raiseKeyboard);
+}
 
 // ── SOUND TOGGLE ─────────────────────────────────────────────────────────────
 document.getElementById('sound-toggle').addEventListener('click', toggleMute);
