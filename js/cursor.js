@@ -7,6 +7,7 @@ let targetX = 0, targetY = 0;
 let lerpX   = 0, lerpY   = 0;
 let cursorStarted  = false;
 let keyboardActive = false;
+let parallaxDirty  = false;
 const LERP        = 0.22;
 const CURSOR_CHUNK = 8;     // px grid the cursor snaps to
 
@@ -55,17 +56,24 @@ document.addEventListener('mousemove', e => {
   }
   targetX = e.clientX;
   targetY = e.clientY;
+  parallaxDirty = true;
+});
 
-  const nx = e.clientX / window.innerWidth  - 0.5;
-  const ny = e.clientY / window.innerHeight - 0.5;
+// parallax writes happen once per frame, not per mousemove — #screen carries
+// the SVG displacement filter, so every transform write re-rasterises the screen
+function applyParallax() {
+  parallaxDirty = false;
+  const nx = targetX / window.innerWidth  - 0.5;
+  const ny = targetY / window.innerHeight - 0.5;
   const tx = (-nx * 80).toFixed(1);
   const ty = (-ny * 55).toFixed(1);
   screenEl.style.transform     = `translate(${tx}px, ${ty}px)`;
   reflectionEl.style.transform = `translate(${(-tx * 0.45).toFixed(1)}px, ${(-ty * 0.45).toFixed(1)}px)`;
-});
+}
 
 // cursor lerp loop — runs independently of mousemove
 (function animateCursor() {
+  if (parallaxDirty) applyParallax();
   if (cursorStarted) {
     lerpX += (targetX - lerpX) * LERP;
     lerpY += (targetY - lerpY) * LERP;

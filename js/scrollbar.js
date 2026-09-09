@@ -45,13 +45,29 @@ export function makeScrollbar(outerEl, innerEl) {
   // accumulate at SCROLL_CHUNK/tick but snap display to SCROLL_GRID boundaries
   // gives a low-framerate chunky feel without moving too fast
   let scrollAcc = 0;
-  outerEl.addEventListener('wheel', e => {
-    e.preventDefault();
-    const max = innerEl.scrollHeight - innerEl.clientHeight;
-    scrollAcc = Math.max(0, Math.min(max, scrollAcc + Math.sign(e.deltaY) * SCROLL_CHUNK));
+  function scrollBy(delta) {
+    const max = Math.max(0, innerEl.scrollHeight - innerEl.clientHeight);
+    scrollAcc = Math.max(0, Math.min(max, scrollAcc + delta));
     innerEl.scrollTop = Math.round(scrollAcc / SCROLL_GRID) * SCROLL_GRID;
     sync();
+  }
+
+  outerEl.addEventListener('wheel', e => {
+    e.preventDefault();
+    scrollBy(Math.sign(e.deltaY) * SCROLL_CHUNK);
   }, { passive: false });
+
+  // touch drag — same chunky grid snap as the wheel
+  let touchY = null;
+  outerEl.addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
+  outerEl.addEventListener('touchmove', e => {
+    if (touchY === null) return;
+    e.preventDefault();
+    const y = e.touches[0].clientY;
+    scrollBy(touchY - y);
+    touchY = y;
+  }, { passive: false });
+  outerEl.addEventListener('touchend', () => { touchY = null; });
 
   // drag and track-click jump straight to a position — carry the wheel
   // accumulator with them or the next tick snaps back to where the wheel left off
