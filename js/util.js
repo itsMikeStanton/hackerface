@@ -1,17 +1,12 @@
-'use strict';
-
-let menuMode = false;
-let currentSection = null;
-
 // ── HELPERS ──────────────────────────────────────────────────────────────────
-const pick  = (...a)  => a[Math.floor(Math.random()*a.length)];
-const rnd   = (a,b)   => Math.floor(Math.random()*(b-a))+a;
-const hex   = n       => Array.from({length:n}, () => rnd(0,16).toString(16)).join('');
-const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
-const pad   = (s,n)   => String(s).padEnd(n);
-const lpad  = (s,n)   => String(s).padStart(n);
+export const pick  = (...a)  => a[Math.floor(Math.random()*a.length)];
+export const rnd   = (a,b)   => Math.floor(Math.random()*(b-a))+a;
+export const hex   = n       => Array.from({length:n}, () => rnd(0,16).toString(16)).join('');
+export const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+export const pad   = (s,n)   => String(s).padEnd(n);
+export const lpad  = (s,n)   => String(s).padStart(n);
 
-const G = {
+export const G = {
   ip:      () => `${rnd(1,255)}.${rnd(0,255)}.${rnd(0,255)}.${rnd(1,255)}`,
   port:    () => pick(21,22,23,25,53,80,443,445,1433,3306,3389,4444,5432,6379,8080,8443,9200,27017),
   svc:     () => pick('ssh','ftp','http','https','smb','mysql','rdp','redis','mongodb','postgres','vnc','smtp'),
@@ -27,7 +22,7 @@ const G = {
 };
 
 // ── SKULL ART ────────────────────────────────────────────────────────────────
-const SKULL = [
+export const SKULL = [
   '        ░░░░░░░░░░░░░        ',
   '      ░░             ░░      ',
   '     ░   ████   ████   ░     ',
@@ -42,4 +37,4 @@ const SKULL = [
 ];
 
 // ── SECTIONS ─────────────────────────────────────────────────────────────────
-const SECTIONS = ['ART', 'GAMES', 'MUSIC', 'WORK', 'WRITING'];
+export const SECTIONS = ['ART', 'GAMES', 'MUSIC', 'WORK', 'WRITING'];

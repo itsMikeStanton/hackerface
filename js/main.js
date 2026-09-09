@@ -1,160 +1,169 @@
-'use strict';
+import { view } from './state.js';
+import { snd, toggleMute } from './audio.js';
+import { SECTIONS } from './util.js';
+import { nav, navFocus } from './nav.js';
+import { PROMPT, promptSpan, inputDispEl, cursorEl, addLine, processQueue,
+         animatedClear, newRun } from './terminal.js';
+import { getRoutineFor } from './routines.js';
+import { closeTopOverlay } from './panel.js';
+import { showMenu, openSection, showSplash } from './menu.js';
+import { setKeyboardActive } from './cursor.js';
+import './effects.js';
+import './sidebar.js';
 
 // ── EXECUTE COMMAND ──────────────────────────────────────────────────────────
 function execute(cmd) {
   if (cmd.trim()) addLine(PROMPT + cmd, 'dim');
+  const trimmed = cmd.trim();
 
-  if (/^(cls|clear)$/i.test(cmd.trim())) {
+  if (/^(cls|clear)$/i.test(trimmed)) {
+    newRun();
     animatedClear();
     return;
   }
 
-  if (/^menu$/i.test(cmd.trim())) {
+  if (/^menu$/i.test(trimmed)) {
+    newRun();
     animatedClear(showMenu);
     return;
   }
 
-  menuMode = false;
-  currentSection = null;
+  const match = SECTIONS.find(s => s.toLowerCase() === trimmed.toLowerCase());
+  if (match) { openSection(match); return; }
+
+  view.menuMode = false;
+  view.currentSection = null;
 
   const routine = getRoutineFor(cmd);
 
-  if (state === 'HACKING') {
-    routine.forEach(i => hackQueue.push(i));
-    hackQueue.push(null);
+  if (view.state === 'HACKING') {
+    // queue behind the routine already running — it keeps its generation
+    routine.forEach(i => view.hackQueue.push(i));
+    view.hackQueue.push(null);
     return;
   }
 
-  state = 'HACKING';
+  const gen = newRun();
+  view.state = 'HACKING';
   promptSpan.textContent = '';
   inputDispEl.textContent = '';
   cursorEl.style.visibility = 'hidden';
 
-  routine.forEach(i => hackQueue.push(i));
-  hackQueue.push(null);
-  processQueue();
+  routine.forEach(i => view.hackQueue.push(i));
+  view.hackQueue.push(null);
+  processQueue(gen);
 }
 
 // ── KEYBOARD ─────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (state === 'BOOT') return;
+  if (view.state === 'BOOT') return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  // splash has no visible prompt line, so anything but nav would pile up unseen
+  const onSplash = document.body.classList.contains('splash');
+  const SPLASH_KEYS = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'];
+  if (onSplash && !SPLASH_KEYS.includes(e.key)) return;
 
   if (e.key === 'Tab') {
     e.preventDefault();
-    document.getElementById('sidebar').classList.toggle('collapsed');
+    toggleSidebar();
+    return;
+  }
+
+  // arrow keys — nav when items exist, otherwise ignore
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+    e.preventDefault();
+    if (!nav.items.length) return;
+    setKeyboardActive();
+    if (e.key === 'ArrowUp')    navFocus(nav.index - nav.cols);
+    if (e.key === 'ArrowDown')  navFocus(nav.index + nav.cols);
+    if (e.key === 'ArrowLeft')  navFocus(nav.index - 1);
+    if (e.key === 'ArrowRight') navFocus(nav.index + 1);
     return;
   }
 
   const skip = ['Shift','Control','Alt','Meta','CapsLock',
                 'F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12',
-                'ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
                 'Home','End','PageUp','PageDown','Insert','Delete'];
   if (skip.includes(e.key)) return;
   e.preventDefault();
 
   if (e.key === 'Escape') {
-    inputBuffer = '';
-    inputDispEl.textContent = '';
+    if (view.inputBuffer) {
+      view.inputBuffer = '';
+      inputDispEl.textContent = '';
+      return;
+    }
+    if (closeTopOverlay()) return;
+    if (view.menuMode) { newRun(); animatedClear(showSplash); return; }
     return;
   }
 
   if (e.key === 'Backspace') {
-    inputBuffer = inputBuffer.slice(0,-1);
-    inputDispEl.textContent = inputBuffer;
+    view.inputBuffer = view.inputBuffer.slice(0,-1);
+    inputDispEl.textContent = view.inputBuffer;
     return;
   }
 
   if (e.key === 'Enter') {
-    const cmd = inputBuffer;
-    inputBuffer = '';
+    if (nav.items.length && nav.index >= 0 && !view.inputBuffer) {
+      nav.items[nav.index].click();
+      return;
+    }
+    if (onSplash) return;
+    const cmd = view.inputBuffer;
+    view.inputBuffer = '';
     inputDispEl.textContent = '';
     execute(cmd);
     return;
   }
 
   if (e.key.length === 1) {
-    if (snd) snd.key();
-    inputBuffer += e.key;
-    inputDispEl.textContent = inputBuffer;
+    snd.key();
+    view.inputBuffer += e.key;
+    inputDispEl.textContent = view.inputBuffer;
   }
 });
 
 // ── SOUND TOGGLE ─────────────────────────────────────────────────────────────
 document.getElementById('sound-toggle').addEventListener('click', toggleMute);
 
-// ── BOOT SEQUENCE ────────────────────────────────────────────────────────────
-const BOOT = [
-  [0,    'dim',   'PHANTOM BIOS v3.1.7  (C) 1998-2024 PhantomSystems Inc.'],
-  [110,  '',      ''],
-  [200,  '',      'CPU: Intel Core i9-13900K @ 5.80GHz [OVERCLOCKED]'],
-  [320,  '',      'RAM: 65536MB ECC DDR5-6400   GPU: RTX 4090 24GB'],
-  [430,  '',      'NVMe: 2TB   NET: 10GbE [STEALTH MODE]'],
-  [570,  '',      ''],
-  [660,  '',      'POST....... PASS   Memory........ PASS   PCI-E......... OK'],
-  [800,  '',      ''],
-  [900,  'bright','═══════════════════ DARKNET OS v7.3.1 ═══════════════════'],
-  [1020, '',      ''],
-  [1100, 'dim',   'Loading kernel: darknet-7.3.1-amd64 ...'],
-  [1200, 'dim',   '[    0.000000] Booting Linux kernel 7.3.1-darknet'],
-  [1300, 'dim',   '[    0.148320] PCI: Using configuration type 1'],
-  [1400, 'dim',   '[    0.891020] phantom_net module ................. OK'],
-  [1500, 'dim',   '[    1.234100] eth0: MAC spoofing ENABLED'],
-  [1600, 'dim',   '[    1.789300] Mounting encrypted filesystem ...... OK'],
-  [1700, '',      '[    2.103400] Starting services:'],
-  [1830, '',      '[    2.412000]   TOR relay (multi-hop) ............. [ OK ]'],
-  [1940, '',      '[    2.534000]   VPN tunnel (AES-256-GCM) .......... [ OK ]'],
-  [2050, '',      '[    2.656000]   Packet obfuscation ................ [ OK ]'],
-  [2160, '',      '[    2.778000]   PHANTOM intrusion suite v9.1 ...... [ OK ]'],
-  [2270, '',      '[    2.900000]   Payload library (32,768 exploits) . [ OK ]'],
-  [2380, '',      '[    3.022000]   Neural hash cracker ................ [ OK ]'],
-  [2490, '',      '[    3.144000]   Botnet C2 interface ............... [ OK ]'],
-  [2600, '',      '[    3.266000]   Zero-day broker ................... [ OK ]'],
-  [2720, '',      ''],
-  [2820, 'dim',   'Origin masked. Traffic encrypted. Logging disabled.'],
-  [2980, 'bright','Welcome back, GHOST.'],
-  [3150, '',      ''],
-  [3260, 'dim',   `Last login: Fri May 23 03:14:15 2026 via tor-relay [${G.ip()}]`],
-  [3380, '',      ''],
-  [3480, 'dim',   'Initializing navigation interface...'],
-  [3580, '',      ''],
-];
-
-function runBoot() {
-  if (snd) snd.boot();
-  BOOT.forEach(([delay, cls, text]) => setTimeout(() => addLine(text, cls), delay));
-  setTimeout(() => { animatedClear(showMenu); }, 3900);
+// ── SIDEBAR TOGGLE ───────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
 }
 
-// ── GHOST CURSOR + PARALLAX ───────────────────────────────────────────────────
-const ghostCursorEl = document.getElementById('ghost-cursor');
-const screenEl      = document.getElementById('screen');
-let charW = 0, charH = 0;
+document.getElementById('sidebar-tab').addEventListener('click', toggleSidebar);
 
-function measureChar() {
-  const span = document.createElement('span');
-  span.style.cssText = 'visibility:hidden;position:absolute;white-space:pre';
-  span.textContent = 'X';
-  termEl.appendChild(span);
-  const r = span.getBoundingClientRect();
-  charW = r.width;
-  charH = r.height;
-  termEl.removeChild(span);
-}
-
-document.addEventListener('mousemove', e => {
-  if (!charW) measureChar();
-
-  ghostCursorEl.style.display = 'block';
-  ghostCursorEl.style.left = (Math.round(e.clientX / charW) * charW) + 'px';
-  ghostCursorEl.style.top  = (Math.round(e.clientY / charH) * charH) + 'px';
-
-  const nx = e.clientX / window.innerWidth  - 0.5;
-  const ny = e.clientY / window.innerHeight - 0.5;
-  screenEl.style.transform = `translate(${(-nx * 40).toFixed(1)}px, ${(-ny * 27).toFixed(1)}px)`;
+// ── ROUTER ────────────────────────────────────────────────────────────────────
+// history-driven navigation passes { fromHistory: true } so the nav functions
+// restore the view without pushing a duplicate entry
+window.addEventListener('popstate', e => {
+  const s = e.state;
+  if (!s || s.view === 'splash') { showSplash(); return; }
+  if (s.view === 'menu')         { showMenu({ fromHistory: true }); return; }
+  if (s.view === 'section') {
+    showMenu({ fromHistory: true });
+    openSection(s.name, { fromHistory: true });
+  }
 });
-
-window.addEventListener('resize', () => { charW = 0; charH = 0; });
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 cursorEl.style.visibility = 'hidden';
-showSplash();
+
+(function initRoute() {
+  const hash = location.hash.slice(1).toLowerCase();
+  if (hash === 'menu') {
+    history.replaceState({view:'menu'}, '', '#menu');
+    document.body.classList.remove('splash');
+    showMenu({ fromHistory: true });
+  } else if (SECTIONS.some(s => s.toLowerCase() === hash)) {
+    const name = SECTIONS.find(s => s.toLowerCase() === hash);
+    history.replaceState({view:'section', name}, '', '#' + hash);
+    document.body.classList.remove('splash');
+    showMenu({ fromHistory: true });
+    openSection(name, { fromHistory: true });
+  } else {
+    showSplash();
+  }
+})();

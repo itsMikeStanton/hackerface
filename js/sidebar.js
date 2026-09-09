@@ -1,4 +1,7 @@
-'use strict';
+import { view } from './state.js';
+import { snd } from './audio.js';
+import { clamp, rnd, pad, lpad, SECTIONS } from './util.js';
+import { openSection } from './menu.js';
 
 // ── SIDEBAR ──────────────────────────────────────────────────────────────────
 const sidebarEl = document.getElementById('sidebar-content');
@@ -30,7 +33,7 @@ function nextState(s) {
 let sb = { cpu:65, ram:55, net:72, up:2.1, dn:0.8, nodes:4821, owned:247, exfil:47.3, conns:183 };
 
 function updateSidebar() {
-  if (menuMode) return;
+  if (view.menuMode) return;
   sb.cpu   = clamp(sb.cpu   + rnd(-9,9),  15, 99);
   sb.ram   = clamp(sb.ram   + rnd(-5,5),  25, 90);
   sb.net   = clamp(sb.net   + rnd(-10,10),20, 99);
@@ -69,17 +72,34 @@ function updateSidebar() {
 updateSidebar();
 setInterval(updateSidebar, 1200);
 
-function updateSidebarNav() {
+export function updateSidebarNav() {
+  sidebarEl.innerHTML = '';
+
   const lines = [
-    TOP,
-    sL('  ▓ NAVIGATE'),
-    SEP,
-    sL(''),
-    ...SECTIONS.map(s => sL(s === currentSection ? ` ▶ ${s}` : `   ${s}`)),
-    sL(''),
-    SEP,
-    sL(currentSection ? "  'menu' to return" : '  click to enter'),
-    BOT,
+    { text: TOP },
+    { text: sL('  ▓ NAVIGATE') },
+    { text: SEP },
+    { text: sL('') },
+    ...SECTIONS.map(s => ({
+      text: sL(s === view.currentSection ? ` ▶ ${s}` : `   ${s}`),
+      section: s,
+    })),
+    { text: sL('') },
+    { text: SEP },
+    { text: sL(view.currentSection ? "  'menu' to return" : '  click to enter') },
+    { text: BOT },
   ];
-  sidebarEl.textContent = lines.join('\n');
+
+  lines.forEach(line => {
+    const div = document.createElement('div');
+    div.textContent = line.text;
+    if (line.section) {
+      div.classList.add('sb-nav-item');
+      div.addEventListener('click', () => openSection(line.section));
+      div.addEventListener('mouseenter', () => {
+        snd.hover();
+      });
+    }
+    sidebarEl.appendChild(div);
+  });
 }

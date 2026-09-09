@@ -1,0 +1,19 @@
+{
+  "items": [
+    { "file": "jack_800.jpg",    "label": "jack",    "tag": "portrait", "year": "2023" },
+    { "file": "kate_800.jpg",    "label": "kate",    "tag": "portrait", "year": "2023" },
+    { "file": "sawyer_800.jpg",  "label": "sawyer",  "tag": "portrait", "year": "2023" },
+    { "file": "locke_800.jpg",   "label": "locke",   "tag": "portrait", "year": "2023" },
+    { "file": "hurley_800.jpg",  "label": "hurley",  "tag": "portrait", "year": "2023" },
+    { "file": "sayid_800.jpg",   "label": "sayid",   "tag": "portrait", "year": "2023" },
+    { "file": "jin_800.jpg",     "label": "jin",     "tag": "portrait", "year": "2023" },
+    { "file": "sun_800.jpg",     "label": "sun",     "tag": "portrait", "year": "2023" },
+    { "file": "charlie_800.jpg", "label": "charlie", "tag": "portrait", "year": "2023" },
+    { "file": "claire_800.jpg",  "label": "claire",  "tag": "portrait", "year": "2010" },
+    { "file": "boone_800.jpg",   "label": "boone",   "tag": "portrait", "year": "2023" },
+    { "file": "shannon_800.jpg", "label": "shannon", "tag": "portrait", "year": "2023" },
+    { "file": "michael_800.jpg", "label": "michael", "tag": "portrait", "year": "2023" },
+    { "file": "walt_800.jpg",    "label": "walt",    "tag": "portrait", "year": "2010" },
+    { "file": "rose_800.jpg",    "label": "rose",    "tag": "portrait", "year": "2023" }
+  ]
+}

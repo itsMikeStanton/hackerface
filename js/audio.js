@@ -1,9 +1,7 @@
-'use strict';
-
-let snd, muted = false;
+let muted = false;
 const MASTER_VOL = 0.5;
 
-(function initAudio() {
+export const snd = (function initAudio() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const master = ctx.createGain();
@@ -40,23 +38,24 @@ const MASTER_VOL = 0.5;
       osc.start(t); osc.stop(t + dur);
     }
 
-    snd = {
+    return {
       key:     () => mkNoise(3200, 0.035, 0.12),
       tick:    () => mkNoise(2000, 0.018, 0.065),
       hover:   () => mkTone(300 + Math.random()*180, 0.07, 0.09),
       barTick: (p) => mkTone(160 + p*520, 0.04, 0.065, 'square'),
       done:    () => { mkTone(620, 0.12, 0.13); mkTone(860, 0.1, 0.09, 'sine', ctx.currentTime+0.08); },
       glitch:  () => {
+        // simple low buzz
         const t = ctx.currentTime;
-        const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass';
-        f.frequency.value = 250 + Math.random()*500; f.Q.value = 0.4;
+        const osc = ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.value = 70;
         const g = ctx.createGain();
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.07, t + 0.03);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-        src.connect(f); f.connect(g); g.connect(master);
-        src.start(t); src.stop(t + 0.4);
+        g.gain.linearRampToValueAtTime(0.05, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+        osc.connect(g); g.connect(master);
+        osc.start(t); osc.stop(t + 0.24);
       },
       wipe: (ms) => {
         const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
@@ -81,11 +80,11 @@ const MASTER_VOL = 0.5;
       },
     };
   } catch(e) {
-    snd = new Proxy({}, { get: () => () => {} });
+    return new Proxy({}, { get: () => () => {} });
   }
 })();
 
-function toggleMute() {
+export function toggleMute() {
   muted = !muted;
   snd.mute(muted);
   const el = document.getElementById('sound-toggle');

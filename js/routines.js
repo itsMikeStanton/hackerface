@@ -1,4 +1,4 @@
-'use strict';
+import { pick, rnd, hex, pad, lpad, G, SKULL } from './util.js';
 
 // ── HACKING ROUTINES ─────────────────────────────────────────────────────────
 const ROUTINES = [
@@ -247,31 +247,34 @@ const ROUTINES = [
   },
 ];
 
-function getRoutine() {
+export function getRoutine() {
   return ROUTINES[rnd(0, ROUTINES.length)]();
 }
 
-function getRoutineFor(cmd) {
+export function getRoutineFor(cmd) {
   if (!cmd) return getRoutine();
   const s = cmd.toLowerCase();
-  if (/nmap|scan|port/.test(s))              return ROUTINES[0]();
-  if (/hydra|brute|crack|ssh/.test(s))       return ROUTINES[1]();
-  if (/hash|hashcat|john/.test(s))           return ROUTINES[2]();
-  if (/exploit|msf|msfconsole/.test(s))      return ROUTINES[3]();
-  if (/run|exec|sub|phantom/.test(s))        return ROUTINES[4]();
-  if (/exfil|wget|scp|rsync/.test(s))        return ROUTINES[5]();
-  if (/arp|mitm|poison/.test(s))             return ROUTINES[6]();
-  if (/bot|c2|ddos|flood/.test(s))           return ROUTINES[7]();
-  if (/key|log|harvest/.test(s))             return ROUTINES[8]();
-  if (/rsa|aes|crypt|sign|key/.test(s))      return ROUTINES[9]();
-  if (/sql|inject|db/.test(s))               return ROUTINES[10]();
-  if (/priv|sudo|root|esc/.test(s))          return ROUTINES[11]();
-  if (/tcpdump|pcap|sniff/.test(s))          return ROUTINES[12]();
-  if (/pivot|lateral|move/.test(s))          return ROUTINES[13]();
-  if (/rootkit|hide|stealth/.test(s))        return ROUTINES[14]();
-  if (/zero|0day|broker/.test(s))            return ROUTINES[15]();
-  if (/decrypt|aes|cipher/.test(s))          return ROUTINES[16]();
-  if (/skull|override|phantom root/.test(s)) return ROUTINES[17]();
-  if (/wifi|wireless|wpa|wlan/.test(s))      return ROUTINES[19]();
+  // most specific patterns first — an earlier loose keyword would otherwise
+  // shadow a later routine (e.g. "root" swallowing "rootkit")
+  if (/skull|override|phantom root/.test(s))   return ROUTINES[17]();
+  if (/rootkit|hide|stealth/.test(s))          return ROUTINES[14]();
+  if (/inject|sweep|process/.test(s))          return ROUTINES[18]();
+  if (/keylog|keystroke|harvest/.test(s))      return ROUTINES[8]();
+  if (/decrypt|cipher|aes|payload/.test(s))    return ROUTINES[16]();
+  if (/rsa|crypt|sign|keygen|keypair|key/.test(s)) return ROUTINES[9]();
+  if (/tcpdump|pcap|sniff/.test(s))            return ROUTINES[12]();
+  if (/sql|sqlmap|dump|db/.test(s))            return ROUTINES[10]();
+  if (/priv|sudo|root|esc/.test(s))            return ROUTINES[11]();
+  if (/nmap|scan|port/.test(s))                return ROUTINES[0]();
+  if (/hydra|brute|crack|ssh/.test(s))         return ROUTINES[1]();
+  if (/hash|hashcat|john/.test(s))             return ROUTINES[2]();
+  if (/exploit|msf|msfconsole/.test(s))        return ROUTINES[3]();
+  if (/exfil|wget|scp|rsync/.test(s))          return ROUTINES[5]();
+  if (/arp|mitm|poison/.test(s))               return ROUTINES[6]();
+  if (/bot|c2|ddos|flood/.test(s))             return ROUTINES[7]();
+  if (/pivot|lateral|move/.test(s))            return ROUTINES[13]();
+  if (/zero|0day|broker/.test(s))              return ROUTINES[15]();
+  if (/wifi|wireless|wpa|wlan/.test(s))        return ROUTINES[19]();
+  if (/run|exec|sub|phantom/.test(s))          return ROUTINES[4]();
   return getRoutine();
 }

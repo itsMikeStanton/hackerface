@@ -1,4 +1,6 @@
-'use strict';
+import { snd } from './audio.js';
+import { pick, rnd } from './util.js';
+import { termEl } from './terminal.js';
 
 // ── BARREL DISTORTION ────────────────────────────────────────────────────────
 (function() {
@@ -24,11 +26,12 @@
   document.getElementById('screen').style.filter = 'url(#crt-warp)';
 })();
 
+const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // ── NOISE ────────────────────────────────────────────────────────────────────
 const nc = document.getElementById('noise');
 const nctx = nc.getContext('2d');
 nc.width = 200; nc.height = 150;
-nc.style.width = '100vw'; nc.style.height = '100vh';
 const nid = nctx.createImageData(200, 150);
 function drawNoise() {
   const d = nid.data;
@@ -39,7 +42,7 @@ function drawNoise() {
   nctx.putImageData(nid, 0, 0);
 }
 drawNoise();
-setInterval(drawNoise, 90);
+if (!REDUCED_MOTION) setInterval(drawNoise, 90);
 
 // ── GLITCH BURSTS ────────────────────────────────────────────────────────────
 const glitchTypes = [
@@ -51,13 +54,21 @@ const glitchTypes = [
 ];
 
 function doGlitch(remaining) {
-  if (snd) snd.glitch();
+  snd.glitch();
   const duration = glitchTypes[rnd(0,glitchTypes.length)]();
+
+  const gc = document.getElementById('ghost-cursor');
+  if (gc) {
+    gc.style.filter    = termEl.style.filter;
+    gc.style.transform = `translate(${((Math.random()-0.5)*8).toFixed(1)}px,${((Math.random()-0.5)*5).toFixed(1)}px)`;
+  }
+
   setTimeout(() => {
     termEl.style.transform = '';
     termEl.style.filter    = '';
+    if (gc) { gc.style.filter = ''; gc.style.transform = ''; }
     if (remaining > 1) setTimeout(() => doGlitch(remaining-1), rnd(8,60));
     else setTimeout(() => doGlitch(Math.random()<0.5 ? rnd(2,6) : 1), rnd(2000,8000));
   }, duration);
 }
-setTimeout(() => doGlitch(1), rnd(2000,4000));
+if (!REDUCED_MOTION) setTimeout(() => doGlitch(1), rnd(2000,4000));

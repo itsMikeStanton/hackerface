@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>TERMINAL</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="notquietly.com — a personal terminal-styled portfolio rendered as a CRT hacker terminal.">
+<title>notquietly</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -26,11 +29,13 @@
   <div id="sweep"></div>
   <div id="rollbar"></div>
   <div id="vignette"></div>
+  <div id="reflection"></div>
 
-  <div id="ghost-cursor">▌</div>
+  <div id="ghost-cursor"></div>
   <div id="sound-toggle">[SOUND]</div>
   <div id="terminal">
     <div id="main-area">
+      <div id="content-panel"></div>
       <div id="output"></div>
       <div id="prompt-line">
         <span id="prompt-span"></span>
@@ -45,15 +50,7 @@
   </div>
 </div>
 
-<script src="js/config.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/sidebar.js"></script>
-<script src="js/terminal.js"></script>
-<script src="js/effects.js"></script>
-<script src="js/routines.js"></script>
-<script src="js/content.js"></script>
-<script src="js/menu.js"></script>
-<script src="js/main.js"></script>
+<script type="module" src="js/main.js"></script>
 
 </body>
 </html>
