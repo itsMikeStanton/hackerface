@@ -21,6 +21,7 @@ truth for a collection's `label` and `desc`.
 
 - `path` — folder for this collection's images + its `meta.json`
 - `cover` — filename (inside `path`) shown on the collection card (optional)
+- `thumb` — small version of the cover for the card; falls back to `cover` (optional)
 - `count` — works count shown on the card; items aren't loaded until the
   collection opens, so keep this in step with `meta.json` (optional)
 
@@ -32,10 +33,15 @@ collection folder and can be any filename; grid order follows array order.
 ```json
 {
   "items": [
-    { "file": "jack_800.jpg", "label": "jack", "tag": "portrait", "year": "2023" }
+    { "file": "jack_800.jpg", "thumb": "thumbs/jack_800.jpg",
+      "label": "jack", "tag": "portrait", "year": "2023" }
   ]
 }
 ```
+
+- `thumb` — small version shown in the grid; falls back to `file` (optional).
+  The grid only ever needs ~130px cards, so without one every card pulls the
+  full image. To make them: `sips -Z 360 -s formatOptions 72 x.jpg --out thumbs/x.jpg`
 
 ## Images
 

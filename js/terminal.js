@@ -23,7 +23,8 @@ export function isCurrent(gen) { return gen === runGen; }
 export function addLine(text, cls) {
   const div = document.createElement('div');
   if (cls) div.className = cls;
-  div.textContent = text;
+  // an empty div has no height — blank spacer lines need something in them
+  div.textContent = text || '\u00a0';
   outputEl.appendChild(div);
   if (text) snd.tick();
   while (outputEl.children.length > 600) outputEl.removeChild(outputEl.firstChild);
@@ -100,6 +101,7 @@ export function processQueue(gen) {
 }
 
 // ── ANIMATED CLEAR ───────────────────────────────────────────────────────────
+const CLEAR_DECAY = 180;   // ms a wiped line's afterglow takes to die
 export function animatedClear(done, gen) {
   if (gen === undefined) gen = runGen;
   const lines = Array.from(outputEl.children);
@@ -129,8 +131,9 @@ export function animatedClear(done, gen) {
     setTimeout(() => {
       if (gen !== runGen) return;
       for (let b = 0; b < perBatch; b++) {
+        // phosphor persistence — the line decays behind the beam, not instantly
         const line = lines[s * perBatch + b];
-        if (line) line.style.visibility = 'hidden';
+        if (line) { line.style.transition = `opacity ${CLEAR_DECAY}ms steps(3, end)`; line.style.opacity = '0'; }
       }
     }, (s / steps) * totalMs);
   }
@@ -142,5 +145,5 @@ export function animatedClear(done, gen) {
     if (gen !== runGen) return;
     outputEl.innerHTML = '';
     (done || setIdle)();
-  }, totalMs + 80);
+  }, totalMs + CLEAR_DECAY + 20);
 }

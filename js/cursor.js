@@ -33,7 +33,7 @@ let trailFrame = 0, trailNext = 0, lastStampX = 0, lastStampY = 0;
 
 // ── CURSOR HIDE ON INTERACTIVE ELEMENTS ──────────────────────────────────────
 const INTERACTIVE_SEL = '.menu-item, .menu-back, .splash-item, .panel-card, ' +
-  '.panel-close, .panel-detail-prev, .panel-detail-next, .sb-nav-item, #sound-toggle, .crt-sb-thumb';
+  '.panel-close, .panel-detail-prev, .panel-detail-next, .sb-nav-item, #sound-toggle, #fx-toggle, .crt-sb-thumb';
 
 document.addEventListener('mouseover', e => {
   if (e.target.closest(INTERACTIVE_SEL)) {
@@ -61,12 +61,13 @@ document.addEventListener('mousemove', e => {
 
 // parallax writes happen once per frame, not per mousemove — #screen carries
 // the SVG displacement filter, so every transform write re-rasterises the screen
+const parallaxX = x => -(x / window.innerWidth  - 0.5) * 80;
+const parallaxY = y => -(y / window.innerHeight - 0.5) * 55;
+
 function applyParallax() {
   parallaxDirty = false;
-  const nx = targetX / window.innerWidth  - 0.5;
-  const ny = targetY / window.innerHeight - 0.5;
-  const tx = (-nx * 80).toFixed(1);
-  const ty = (-ny * 55).toFixed(1);
+  const tx = parallaxX(targetX).toFixed(1);
+  const ty = parallaxY(targetY).toFixed(1);
   screenEl.style.transform     = `translate(${tx}px, ${ty}px)`;
   reflectionEl.style.transform = `translate(${(-tx * 0.45).toFixed(1)}px, ${(-ty * 0.45).toFixed(1)}px)`;
 }
@@ -93,8 +94,11 @@ function applyParallax() {
         }
       });
 
-      const cx = Math.round(lerpX / CURSOR_CHUNK) * CURSOR_CHUNK;
-      const cy = Math.round(lerpY / CURSOR_CHUNK) * CURSOR_CHUNK;
+      // the cursor lives inside #screen, which the parallax shifts, while
+      // hover follows the real pointer — draw against that shift or the tip
+      // points at a different element than the one that lights up
+      const cx = Math.round((lerpX - parallaxX(lerpX)) / CURSOR_CHUNK) * CURSOR_CHUNK;
+      const cy = Math.round((lerpY - parallaxY(lerpY)) / CURSOR_CHUNK) * CURSOR_CHUNK;
       ghostCursorEl.style.display = 'block';
       ghostCursorEl.style.left = cx + 'px';
       ghostCursorEl.style.top  = cy + 'px';

@@ -7,6 +7,8 @@ import { outputEl, promptSpan, inputDispEl, cursorEl, addLine, setIdle,
 import { updateSidebarNav } from './sidebar.js';
 import { loadSection, openPanel } from './panel.js';
 import { runBoot } from './boot.js';
+import { REDUCED_MOTION, kick } from './signal.js';
+import { powerCycle, vRoll } from './fx.js';
 
 // ── MENU / NAV ───────────────────────────────────────────────────────────────
 export function addBackButton() {
@@ -17,6 +19,29 @@ export function addBackButton() {
   btn.addEventListener('click', () => showMenu());
   outputEl.appendChild(btn);
   outputEl.scrollTop = outputEl.scrollHeight;
+}
+
+// Types `text` into el left to right. The untyped tail stays in the layout
+// (hidden) so centred items don't shift as they fill in.
+const TYPE_MS = 16;
+function typeOn(el, text, delay, done) {
+  if (REDUCED_MOTION) { el.textContent = text; if (done) done(); return; }
+  const shown = document.createElement('span');
+  const rest  = document.createElement('span');
+  rest.style.visibility = 'hidden';
+  rest.textContent = text;
+  el.textContent = '';
+  el.append(shown, rest);
+  let i = 0;
+  setTimeout(function step() {
+    if (!el.isConnected) return;
+    if (i === 0) snd.tick();
+    i++;
+    shown.textContent = text.slice(0, i);
+    rest.textContent  = text.slice(i);
+    if (i < text.length) setTimeout(step, TYPE_MS);
+    else if (done) done();
+  }, delay);
 }
 
 export function showMenu(opts) {
@@ -34,17 +59,21 @@ export function showMenu(opts) {
   SECTIONS.forEach((name, i) => {
     const item = document.createElement('div');
     item.className = 'menu-item';
-    item.textContent = `[ ${name} ]`;
     item.addEventListener('click', () => openSection(name));
     item.addEventListener('mouseenter', () => { snd.hover(); navFocus(i); });
     wrap.appendChild(item);
+    let conn = null;
     if (i < SECTIONS.length - 1) {
-      const conn = document.createElement('div');
+      conn = document.createElement('div');
       conn.className = 'menu-conn';
       conn.textContent = '|';
+      if (!REDUCED_MOTION) conn.style.visibility = 'hidden';
       wrap.appendChild(conn);
     }
+    // the menu draws itself top to bottom; each connector lands once its item has
+    typeOn(item, `[ ${name} ]`, i * 90, () => { if (conn) conn.style.visibility = ''; });
   });
+  kick(0.3);
 
   outputEl.appendChild(wrap);
   updateSidebarNav();
@@ -151,6 +180,8 @@ export function openSection(name, opts) {
   view.hackQueue = [];
   clearNav();
   updateSidebarNav();
+  kick(0.85);
+  if (!(opts && opts.initial)) vRoll();   // on first load the power-on is the entrance
 
   animatedClear(() => {
     if (!isCurrent(gen)) return;
@@ -283,13 +314,20 @@ export function showSplash() {
   bootEl.textContent = '[ BOOT ]';
   bootEl.addEventListener('mouseenter', () => { snd.hover(); navFocus(0); });
   bootEl.addEventListener('click', () => {
+    if (view.state === 'BOOT') return;
     clearNav();
-    document.body.classList.remove('splash');
     view.state = 'BOOT';
-    outputEl.innerHTML = '';
-    promptSpan.textContent = '';
-    cursorEl.style.visibility = 'hidden';
-    runBoot();
+    const gen = newRun();
+    // hard power cycle: the splash collapses, the tube comes back up into POST
+    powerCycle(() => {
+      if (!isCurrent(gen)) return;
+      document.body.classList.remove('splash');
+      outputEl.innerHTML = '';
+      promptSpan.textContent = '';
+      cursorEl.style.visibility = 'hidden';
+      // first BIOS line lands as the bloom settles
+      setTimeout(() => { if (isCurrent(gen)) runBoot(); }, REDUCED_MOTION ? 0 : 420);
+    });
   });
   wrap.appendChild(bootEl);
 
@@ -303,8 +341,10 @@ export function showSplash() {
   exitEl.textContent = '[ EXIT ]';
   exitEl.addEventListener('mouseenter', () => { snd.hover(); navFocus(1); });
   exitEl.addEventListener('click', () => {
-    clearNav();
+    if (view.state === 'BOOT') return;
     window.open('https://www.google.com/search?q=kittens+gif', '_blank', 'noopener');
+    // the tube shuts off behind the new tab, then idles back up to the splash
+    powerCycle(null, 900);
   });
   wrap.appendChild(exitEl);
 

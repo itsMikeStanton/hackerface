@@ -2,6 +2,8 @@ import { view } from './state.js';
 import { snd } from './audio.js';
 import { clamp, rnd, pad, lpad, SECTIONS } from './util.js';
 import { openSection } from './menu.js';
+import { sigLevel } from './signal.js';
+import { net } from './net.js';
 
 // ── SIDEBAR ──────────────────────────────────────────────────────────────────
 const sidebarEl = document.getElementById('sidebar-content');
@@ -71,6 +73,41 @@ function updateSidebar() {
 }
 updateSidebar();
 setInterval(updateSidebar, 1200);
+
+// ── LIVE READOUT ─────────────────────────────────────────────────────────────
+// Sits under the nav box. Unlike the monitor above, these numbers are real:
+// the signal level, transfer activity right now, and bytes fetched so far.
+const liveEl  = document.getElementById('sidebar-live');
+const LIVE_MS = 400;
+const NET_FULL = 4e6;        // bytes/s that pins the NET bar
+let netShown = 0, liveText = '';
+
+function fmtBytes(b) {
+  return b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : (b / 1024).toFixed(1) + ' KB';
+}
+
+function updateLive() {
+  let text = '';
+  const rate = net.pulse / (LIVE_MS / 1000);
+  net.pulse = 0;
+  if (view.menuMode) {
+    // sqrt scale so a small JSON fetch still registers; falls back in steps
+    const pct = clamp(Math.round(Math.sqrt(rate / NET_FULL) * 100), 0, 100);
+    netShown  = Math.max(pct, Math.floor(netShown * 0.55));
+    const sig = Math.round(sigLevel() * 100);
+    text = [
+      TOP,
+      sL('  ▓ SIGNAL'),
+      SEP,
+      sL(` SIG ${BAR(sig)}  ${lpad(sig,3)}%`),
+      sL(` NET ${BAR(netShown)}  ${lpad(netShown,3)}%`),
+      sL(` RX  ${lpad(fmtBytes(net.rx),12)}`),
+      BOT,
+    ].join('\n');
+  }
+  if (text !== liveText) { liveText = text; liveEl.textContent = text; }
+}
+setInterval(updateLive, LIVE_MS);
 
 export function updateSidebarNav() {
   sidebarEl.innerHTML = '';

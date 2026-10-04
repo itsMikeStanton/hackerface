@@ -3,13 +3,16 @@ import { snd, toggleMute } from './audio.js';
 import { SECTIONS } from './util.js';
 import { nav, navFocus } from './nav.js';
 import { PROMPT, promptSpan, inputDispEl, cursorEl, addLine, processQueue,
-         animatedClear, newRun } from './terminal.js';
+         animatedClear, newRun, isCurrent } from './terminal.js';
 import { getRoutineFor } from './routines.js';
 import { closeTopOverlay } from './panel.js';
 import { showMenu, openSection, showSplash } from './menu.js';
 import { setKeyboardActive } from './cursor.js';
+import { kick, fxLive, setFxLive, onFx } from './signal.js';
+import { powerOn, powerCycle } from './fx.js';
 import './effects.js';
 import './sidebar.js';
+import './attract.js';
 
 // ── EXECUTE COMMAND ──────────────────────────────────────────────────────────
 function execute(cmd) {
@@ -28,6 +31,14 @@ function execute(cmd) {
     return;
   }
 
+  // fx | fx live | fx classic — switch the ambient effects mode
+  const fx = trimmed.match(/^fx(?:\s+(live|classic))?$/i);
+  if (fx) {
+    setFxLive(fx[1] ? fx[1].toLowerCase() === 'live' : !fxLive());
+    addLine(`[*] fx: ${fxLive() ? 'live' : 'classic'}`, 'dim');
+    return;
+  }
+
   const match = SECTIONS.find(s => s.toLowerCase() === trimmed.toLowerCase());
   if (match) { openSection(match); return; }
 
@@ -35,6 +46,7 @@ function execute(cmd) {
   view.currentSection = null;
 
   const routine = getRoutineFor(cmd);
+  kick(0.35);
 
   if (view.state === 'HACKING') {
     // queue behind the routine already running — it keeps its generation
@@ -99,7 +111,12 @@ document.addEventListener('keydown', e => {
       return;
     }
     if (closeTopOverlay()) return;
-    if (view.menuMode) { newRun(); animatedClear(showSplash); return; }
+    if (view.menuMode) {
+      // leaving the system: the tube powers down and comes back up on the splash
+      const gen = newRun();
+      powerCycle(() => { if (isCurrent(gen)) showSplash(); });
+      return;
+    }
     return;
   }
 
@@ -161,6 +178,13 @@ if (window.matchMedia('(pointer: coarse)').matches) {
 // ── SOUND TOGGLE ─────────────────────────────────────────────────────────────
 document.getElementById('sound-toggle').addEventListener('click', toggleMute);
 
+// ── FX TOGGLE ────────────────────────────────────────────────────────────────
+const fxToggle = document.getElementById('fx-toggle');
+const syncFxLabel = () => { fxToggle.textContent = fxLive() ? '[FX:LIVE]' : '[FX:CLASSIC]'; };
+fxToggle.addEventListener('click', () => { setFxLive(!fxLive()); kick(0.5); });
+onFx(syncFxLabel);
+syncFxLabel();
+
 // ── SIDEBAR TOGGLE ───────────────────────────────────────────────────────────
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('collapsed');
@@ -195,8 +219,9 @@ cursorEl.style.visibility = 'hidden';
     history.replaceState({view:'section', name}, '', '#' + hash);
     document.body.classList.remove('splash');
     showMenu({ fromHistory: true });
-    openSection(name, { fromHistory: true });
+    openSection(name, { fromHistory: true, initial: true });
   } else {
     showSplash();
   }
+  powerOn();   // the tube warms up into whatever view the URL asked for
 })();

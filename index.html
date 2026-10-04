@@ -14,38 +14,61 @@
   <defs>
     <filter id="crt-warp" color-interpolation-filters="sRGB"
             x="-5%" y="-5%" width="110%" height="110%">
-      <feImage id="bmap" result="dmap" preserveAspectRatio="none"/>
-      <feDisplacementMap in="SourceGraphic" in2="dmap"
+      <feImage class="bmap" result="dmap" preserveAspectRatio="none"/>
+      <feDisplacementMap class="warp" in="SourceGraphic" in2="dmap"
+                         scale="170" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- same warp with three sideways-sheared bands in front of it; swapped in
+         only for the frames a tear glitch lasts (see effects.js) -->
+    <filter id="crt-tear" color-interpolation-filters="sRGB"
+            x="-5%" y="-5%" width="110%" height="110%">
+      <feOffset in="SourceGraphic" dx="0" dy="0" x="0" y="0" width="0" height="0" result="t1"/>
+      <feOffset in="SourceGraphic" dx="0" dy="0" x="0" y="0" width="0" height="0" result="t2"/>
+      <feOffset in="SourceGraphic" dx="0" dy="0" x="0" y="0" width="0" height="0" result="t3"/>
+      <feMerge result="torn">
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="t1"/><feMergeNode in="t2"/><feMergeNode in="t3"/>
+      </feMerge>
+      <feImage class="bmap" result="dmap" preserveAspectRatio="none"/>
+      <feDisplacementMap class="warp" in="torn" in2="dmap"
                          scale="170" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
   </defs>
 </svg>
 
 <div id="screen">
-  <canvas id="noise"></canvas>
-  <div id="scanlines"></div>
-  <div id="sweep"></div>
-  <div id="rollbar"></div>
-  <div id="vignette"></div>
-  <div id="reflection"></div>
+  <!-- #raster is everything the beam draws; the glass (vignette, reflection)
+       stays outside it so the picture can collapse without the tube moving -->
+  <div id="raster">
+    <canvas id="noise"></canvas>
+    <div id="scanlines"></div>
+    <div id="sweep"></div>
+    <div id="rollbar"></div>
 
-  <div id="ghost-cursor"></div>
-  <div id="sound-toggle">[SOUND]</div>
-  <div id="terminal">
-    <div id="main-area">
-      <div id="content-panel"></div>
-      <div id="output"></div>
-      <div id="prompt-line">
-        <span id="prompt-span"></span>
-        <span id="input-disp"></span>
-        <span id="cursor"></span>
+    <div id="ghost-cursor"></div>
+    <div id="fx-toggle">[FX:CLASSIC]</div>
+    <div id="sound-toggle">[SOUND]</div>
+    <div id="terminal">
+      <div id="main-area">
+        <div id="attract"></div>
+        <div id="content-panel"></div>
+        <div id="output"></div>
+        <div id="prompt-line">
+          <span id="prompt-span"></span>
+          <span id="input-disp"></span>
+          <span id="cursor"></span>
+        </div>
+      </div>
+      <div id="sidebar">
+        <div id="sidebar-content"></div>
+        <div id="sidebar-live"></div>
+        <div id="sidebar-tab">[TAB]</div>
       </div>
     </div>
-    <div id="sidebar">
-      <div id="sidebar-content"></div>
-      <div id="sidebar-tab">[TAB]</div>
-    </div>
+    <div id="tube-wash"></div>
   </div>
+  <div id="vignette"></div>
+  <div id="reflection"></div>
 </div>
 
 <input id="kbd" type="text" autocomplete="off" autocorrect="off" autocapitalize="off"

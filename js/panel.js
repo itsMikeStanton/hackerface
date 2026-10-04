@@ -4,6 +4,9 @@ import { promptSpan, inputDispEl, cursorEl, PROMPT } from './terminal.js';
 import { clearNav, navFocus, initGridNav } from './nav.js';
 import { makeScrollbar } from './scrollbar.js';
 import { showMenu } from './menu.js';
+import { kick } from './signal.js';
+import { channelCut } from './fx.js';
+import { netPulse } from './net.js';
 
 // ── CONTENT PANEL ENGINE ──────────────────────────────────────────────────────
 // Section data lives in js/sections/<name>.js and is loaded on demand.
@@ -51,6 +54,7 @@ async function fetchImageProgress(src, onProgress) {
     if (done) break;
     chunks.push(value);
     received += value.length;
+    netPulse(value.length);
     if (total) onProgress(received / total, received, total);
   }
   if (!total) onProgress(1, received, received);
@@ -61,7 +65,12 @@ async function fetchImageProgress(src, onProgress) {
 // Renders an image as chunky pixel blocks that resolve into finer detail over
 // several steps — the classic movie image-scan look. Done on a <canvas>.
 const REVEAL_LEVELS = [4, 8, 16, 32, 64, 128];  // blocks across, coarse → fine
+// share of the step time each level holds for — the coarse blocks linger, the
+// fine levels snap through. Sums to the level count, so the total is unchanged.
+const REVEAL_HOLD   = [1.9, 1.5, 1.1, 0.7, 0.45, 0.35];
+const REVEAL_BANDS  = 5;                        // each level paints top → bottom in this many bands
 const REVEAL_TINT   = '#0d3a0d';                // dark phosphor green the reveal starts in
+const REVEAL_BEAM   = 'rgba(140,255,140,0.9)';  // scan line on the leading edge of a band
 
 function drawFit(ctx, img, fit, dw, dh) {
   const iw = img.naturalWidth || img.width;
@@ -90,6 +99,12 @@ function revealImage(canvas, img, fit, stepMs, opts = {}) {
   ph.width = cw; ph.height = ch;
   const phctx = ph.getContext('2d');
 
+  // one finished frame per level is composed here, then copied onto the
+  // visible canvas band by band so each level scans in from the top
+  const frame = document.createElement('canvas');
+  frame.width = cw; frame.height = ch;
+  const fctx = frame.getContext('2d');
+
   // Build a green-phosphor version of the low-res frame and composite it over
   // the colour frame at `alpha`. Maps luminance → green ramp, so whites become
   // bright green (a plain hue tint leaves whites white).
@@ -109,18 +124,16 @@ function revealImage(canvas, img, fit, stepMs, opts = {}) {
     phctx.drawImage(tmp, 0, 0, bw, bh, 0, 0, cw, ch);   // re-mask to image alpha
     phctx.globalCompositeOperation = 'source-over';
 
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(ph, 0, 0);
-    ctx.globalAlpha = 1;
+    fctx.globalAlpha = alpha;
+    fctx.drawImage(ph, 0, 0);
+    fctx.globalAlpha = 1;
   }
 
-  let i = 0;
-  (function step() {
+  function composeLevel(i) {
+    fctx.clearRect(0, 0, cw, ch);
     if (i >= n) {
-      ctx.imageSmoothingEnabled = true;
-      ctx.clearRect(0, 0, cw, ch);
-      ctx.drawImage(src, 0, 0);                          // crisp, full color
-      if (opts.done) opts.done();
+      fctx.imageSmoothingEnabled = true;
+      fctx.drawImage(src, 0, 0);                         // crisp, full color
       return;
     }
     const bw = Math.max(1, REVEAL_LEVELS[i]);
@@ -128,13 +141,34 @@ function revealImage(canvas, img, fit, stepMs, opts = {}) {
     tmp.width = bw; tmp.height = bh;
     tctx.imageSmoothingEnabled = true;
     tctx.drawImage(src, 0, 0, cw, ch, 0, 0, bw, bh);    // downsample
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, cw, ch);
-    ctx.drawImage(tmp, 0, 0, bw, bh, 0, 0, cw, ch);     // blocky colour upscale
+    fctx.imageSmoothingEnabled = false;
+    fctx.drawImage(tmp, 0, 0, bw, bh, 0, 0, cw, ch);    // blocky colour upscale
     phosphorOver(bw, bh, Math.pow(1 - i / n, 0.4));      // green → colour (green lingers)
-    if (opts.onStep) opts.onStep(i / n);
-    i++;
-    setTimeout(step, stepMs);
+  }
+
+  const bandH = Math.ceil(ch / REVEAL_BANDS);
+  const beamH = Math.max(1, Math.round(ch / 160));
+  let i = 0;
+  (function level() {
+    composeLevel(i);
+    if (i < n && opts.onStep) opts.onStep(i / n);
+    const bandMs = stepMs * REVEAL_HOLD[Math.min(i, n - 1)] / REVEAL_BANDS;
+    let band = 0;
+    (function paint() {
+      const y = band * bandH;
+      ctx.clearRect(0, y, cw, bandH);
+      ctx.drawImage(frame, 0, y, cw, bandH, 0, y, cw, bandH);
+      band++;
+      if (band < REVEAL_BANDS) {
+        ctx.fillStyle = REVEAL_BEAM;                     // the next band paints over it
+        ctx.fillRect(0, band * bandH, cw, beamH);
+        setTimeout(paint, bandMs);
+        return;
+      }
+      if (i >= n) { if (opts.done) opts.done(); return; }
+      i++;
+      setTimeout(level, bandMs);
+    })();
   })();
 }
 
@@ -218,7 +252,7 @@ function loadImageInto(container, src, label) {
         container.appendChild(canvas);
         // bytes are in — now resolve from blocks to crisp
         revealImage(canvas, img, 'contain', 210, {
-          onStep: (p) => { snd.barTick(p); },
+          onStep: (p) => { snd.barTick(p); kick(0.1); },
           done:   () => { snd.done(); },
         });
         // revealImage rasterises the image into its own canvas synchronously
@@ -303,6 +337,9 @@ function buildOverlayChrome({ headerClass, backText, crumbText, onBack }) {
   return { hdr, backBtn, crumb };
 }
 
+// the overlays' raster-wipe transition time in style.css, plus a frame of slack
+const OVERLAY_MS = 280;
+
 // hands keyboard nav back to the grid we are returning to
 function refocusGrid(scopeEl, sel) {
   const grid = scopeEl.querySelector(sel);
@@ -312,19 +349,22 @@ function refocusGrid(scopeEl, sel) {
 function closeDetail(detail, collOverlay) {
   detail.classList.remove('open');
   snd.hover();
+  kick(0.2);
   refocusGrid(collOverlay, '.panel-grid');
 }
 
 function closeCollection(overlay, rootEl) {
   overlay.classList.remove('open');
-  setTimeout(() => overlay.remove(), 240);
+  setTimeout(() => overlay.remove(), OVERLAY_MS);
   snd.hover();
+  kick(0.2);
   refocusGrid(rootEl, '.panel-scroll-body .panel-grid');
 }
 
 // ── COLLECTION OVERLAY ────────────────────────────────────────────────────────
 function openCollection(coll, rootEl) {
   clearNav();
+  kick(0.45);
 
   const overlay = document.createElement('div');
   overlay.className = 'panel-collection';
@@ -353,7 +393,7 @@ function openCollection(coll, rootEl) {
     const gridItems = items.map(it => ({
       ...it,
       sub: `${it.tag}  ${it.year}`,
-      src: it.file ? `${coll.path}/${it.file}` : null,
+      src: (it.thumb || it.file) ? `${coll.path}/${it.thumb || it.file}` : null,
     }));
     const { grid, cards } = buildGrid(gridItems, (_, i) => openDetail(coll, i, overlay));
     inner.appendChild(grid);
@@ -387,6 +427,9 @@ function openDetail(coll, idx, collOverlay) {
     detail.className = 'panel-detail';
     panelEl.appendChild(detail);
   }
+  // already showing a work → prev / next swaps the picture in place: channel cut
+  if (detail.classList.contains('open')) channelCut(detail);
+  kick(0.3);
   detail.innerHTML = '';
   detail._collOverlay = collOverlay;
 
@@ -459,6 +502,7 @@ export function openPanel(name, def) {
   if (!def || def.type !== 'panel') return false;
 
   panelEl.innerHTML = '';
+  kick(0.4);
 
   const { hdr } = buildOverlayChrome({
     headerClass: 'panel-header',
@@ -494,7 +538,7 @@ export function openPanel(name, def) {
     const collItems = collections.map(c => ({
       label: c.label,
       sub:   `${c.count != null ? c.count : (c.items ? c.items.length : '—')} works  ·  ${c.desc}`,
-      src:   c.cover ? `${c.path}/${c.cover}` : null,
+      src:   (c.thumb || c.cover) ? `${c.path}/${c.thumb || c.cover}` : null,
     }));
     const { grid, cards } = buildGrid(collItems, (_, i) => openCollection(collections[i], panelEl));
     inner.appendChild(grid);
@@ -542,5 +586,5 @@ export function closePanel() {
   setTimeout(() => {
     panelEl.innerHTML = '';
     showMenu();
-  }, 240);
+  }, OVERLAY_MS);
 }
